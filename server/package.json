@@ -1,0 +1,14 @@
+{
+  "name": "x-reply-ai-server",
+  "version": "0.1.0",
+  "description": "X AIリプ アシスタントのバックエンドサーバー（モック版：ルールベース生成を返す）",
+  "private": true,
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.2"
+  }
+}

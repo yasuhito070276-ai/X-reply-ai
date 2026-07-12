@@ -203,3 +203,12 @@ function generateReplies(info) {
 
   return { angleName: ANGLE_NAMES[angle], replies };
 }
+
+// ---------------------------------------------------------------------
+// Node.js（バックエンドサーバー）から読み込まれたときのための1行。
+// ブラウザ（Chrome拡張）には module という仕組みがないので、
+// ブラウザではこの if の中は実行されません。
+// ---------------------------------------------------------------------
+if (typeof module !== "undefined") {
+  module.exports = { generateReplies };
+}
