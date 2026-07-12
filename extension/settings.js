@@ -7,10 +7,29 @@
 // =====================================================================
 
 // ---- プロンプトの初期文面 --------------------------------------------
-// リプ生成の固定ルールは「Xリプ専用GPT」側に設定してあるため、
-// 拡張機能からは投稿の情報と出力形式だけを送ります。
+// リプ生成の固定ルールは AI サービス側（Claude のプロジェクト、または
+// ChatGPT のカスタムGPT）に設定してあるため、拡張機能からは
+// 投稿の情報と出力形式だけを送ります。
 // {{author}} と {{postText}} の部分に、投稿者名と投稿本文が差し込まれます。
 const DEFAULT_PROMPT_TEMPLATE = `【最優先指示】
+このプロジェクト／GPTに設定されたルールを最優先で適用してください。
+過去の会話ではなく、今回の投稿内容に合わせて3案を作成してください。
+
+【投稿者】
+{{author}}
+
+【投稿本文】
+{{postText}}
+
+【出力】
+本命：
+親しみ：
+知見：
+
+余計な説明は不要です。`;
+
+// v0.9 の初期文面（ChatGPT専用の表現だった版。自動移行用）
+const LEGACY_PROMPT_TEMPLATE_V09 = `【最優先指示】
 このGPTに設定されたルールを最優先で適用してください。
 過去の会話ではなく、今回の投稿内容に合わせて3案を作成してください。
 
@@ -75,8 +94,14 @@ const LEGACY_GUIDE_MESSAGE = "プロンプトをコピーしました。ChatGPT�
 
 // ---- 設定の既定値 ----------------------------------------------------
 const DEFAULT_SETTINGS = {
-  // Xリプ専用GPTチャットのURL（例: https://chatgpt.com/g/g-xxxx または /c/xxxx）
+  // 使うAIサービス（"claude" または "chatgpt"）
+  aiService: "claude",
+
+  // Xリプ専用GPTチャットのURL（ChatGPT用。例: https://chatgpt.com/g/g-xxxx）
   chatUrl: "",
+
+  // ClaudeプロジェクトのURL（Claude用。例: https://claude.ai/project/xxxx）
+  claudeUrl: "",
 
   // リプ生成プロンプトの文面
   promptTemplate: DEFAULT_PROMPT_TEMPLATE,
@@ -94,6 +119,7 @@ function loadSettings() {
       const updates = {};
 
       if (
+        items.promptTemplate === LEGACY_PROMPT_TEMPLATE_V09 ||
         items.promptTemplate === LEGACY_PROMPT_TEMPLATE_V08 ||
         items.promptTemplate === LEGACY_PROMPT_TEMPLATE_V07
       ) {

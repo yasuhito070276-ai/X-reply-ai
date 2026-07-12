@@ -110,21 +110,26 @@ async function onAiReplyClick(tweet) {
     return;
   }
 
+  // 選択中のAIサービス（Claude / ChatGPT）と、その接続先URLを決める
+  const service = settings.aiService === "chatgpt" ? "chatgpt" : "claude";
+  const chatUrl = service === "claude" ? settings.claudeUrl : settings.chatUrl;
+  const serviceName = service === "claude" ? "Claude" : "ChatGPT";
+
   // 案内文（設定画面で変更できる）を画面に大きく表示する。
-  // 専用チャットURLが未設定なら、設定を促すひとことを足す
+  // 接続先URLが未設定なら、設定を促すひとことを足す
   showBigMessage(settings.guideMessage, {
-    subText: settings.chatUrl
+    subText: chatUrl
       ? ""
-      : "拡張機能の設定画面でGPTチャットのURLを登録すると、毎回同じチャットが開きます",
+      : `拡張機能の設定画面で${serviceName}のURLを登録すると、毎回同じチャットが開きます`,
   });
 
-  // ChatGPT から戻ってきたとき用の「返信欄へ入力」ボタンを出しておく
+  // AIチャットから戻ってきたとき用の「返信欄へ入力」ボタンを出しておく
   showPasteBar();
 
-  // 案内文を読む時間を少し置いてから、ChatGPT のタブへ移動する。
+  // 案内文を読む時間を少し置いてから、AIチャットのタブへ移動する。
   // タブの検索・切り替え・作成は background.js の仕事（メッセージで依頼）
   setTimeout(() => {
-    chrome.runtime.sendMessage({ type: "SHOW_CHATGPT", chatUrl: settings.chatUrl });
+    chrome.runtime.sendMessage({ type: "SHOW_AI_CHAT", service, chatUrl });
   }, TAB_SWITCH_DELAY);
 }
 

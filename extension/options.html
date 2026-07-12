@@ -33,6 +33,14 @@
       color: #536471;
       margin: 0 0 8px;
     }
+    label.radio {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: normal;
+      margin-right: 20px;
+      cursor: pointer;
+    }
     input[type="url"], textarea {
       width: 100%;
       box-sizing: border-box;
@@ -83,7 +91,28 @@
   <h1>X AIリプ アシスタント 設定</h1>
 
   <div class="field">
-    <label for="chatUrl">1. Xリプ専用GPTチャットのURL</label>
+    <label>1. 使うAIサービス</label>
+    <p class="hint">AIリプボタンを押したときに、どちらのサービスを開くかを選びます。</p>
+    <label class="radio">
+      <input type="radio" name="aiService" value="claude" /> Claude（claude.ai）
+    </label>
+    <label class="radio">
+      <input type="radio" name="aiService" value="chatgpt" /> ChatGPT（chatgpt.com）
+    </label>
+  </div>
+
+  <div class="field">
+    <label for="claudeUrl">2. ClaudeプロジェクトのURL（Claude利用時）</label>
+    <p class="hint">
+      Xリプ専用の Claude プロジェクトのURL（例:
+      https://claude.ai/project/xxxx）をここに貼ります。
+      毎回このプロジェクトを開きます。空欄の場合は claude.ai のトップが開きます。
+    </p>
+    <input type="url" id="claudeUrl" placeholder="https://claude.ai/project/xxxx" />
+  </div>
+
+  <div class="field">
+    <label for="chatUrl">3. GPTチャットのURL（ChatGPT利用時）</label>
     <p class="hint">
       Xリプ専用のGPT（カスタムGPT）のチャットURL（例:
       https://chatgpt.com/g/g-xxxx）をここに貼ります。
@@ -93,7 +122,7 @@
   </div>
 
   <div class="field">
-    <label for="promptTemplate">2. リプ生成プロンプト（固定プロンプト）</label>
+    <label for="promptTemplate">4. リプ生成プロンプト（固定プロンプト）</label>
     <p class="hint">
       {{author}} は投稿者名、{{postText}} は投稿本文に自動で置き換わります
       （{{postText}} は必須です）。リプ生成の固定ルールはGPT側に設定してあるため、
@@ -103,7 +132,7 @@
   </div>
 
   <div class="field">
-    <label for="guideMessage">3. コピー後に大きく表示する案内文</label>
+    <label for="guideMessage">5. コピー後に大きく表示する案内文</label>
     <p class="hint">AIリプボタンを押したときに、Xの画面中央に大きく表示されるメッセージです。</p>
     <textarea id="guideMessage"></textarea>
   </div>

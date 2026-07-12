@@ -4,7 +4,7 @@
   "description": "X AIリプ アシスタントの自動テスト（重複入力の検出など）",
   "private": true,
   "scripts": {
-    "test": "node e2e-noduplicate.js"
+    "test": "node e2e-noduplicate.js && node e2e-service-switch.js"
   },
   "dependencies": {
     "playwright": "^1.49.0"
