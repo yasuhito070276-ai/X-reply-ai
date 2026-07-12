@@ -1,0 +1,98 @@
+/* =====================================================================
+   X AIリプ アシスタント の見た目
+   ===================================================================== */
+
+/* ---- 各投稿に追加する「AIリプ」ボタン ---- */
+.ai-reply-button {
+  margin-left: 12px;
+  padding: 4px 12px;
+  border: 1px solid #1d9bf0;      /* Xのブランドカラー（青） */
+  border-radius: 9999px;          /* 丸いピル型 */
+  background: transparent;
+  color: #1d9bf0;
+  font-size: 13px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.ai-reply-button:hover {
+  background: rgba(29, 155, 240, 0.1);
+}
+
+/* ---- 画面全体を覆う半透明の背景 ---- */
+.ai-reply-overlay {
+  position: fixed;
+  inset: 0;                       /* 上下左右すべて0 = 画面全体 */
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 10000;                 /* Xの画面より手前に表示する */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ---- リプ候補のパネル ---- */
+.ai-reply-panel {
+  width: min(480px, 90vw);        /* 最大480px、狭い画面では画面幅の90% */
+  background: #fff;
+  color: #0f1419;
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ai-reply-panel-title {
+  font-size: 16px;
+  font-weight: bold;
+}
+
+/* 取得した投稿の確認表示（グレーの枠） */
+.ai-reply-panel-source {
+  font-size: 12px;
+  color: #536471;
+  background: #f7f9f9;
+  border-radius: 8px;
+  padding: 8px 12px;
+  max-height: 80px;
+  overflow-y: auto;               /* 長い本文はスクロールで見られる */
+}
+
+/* リプ候補の1つ1つ */
+.ai-reply-panel-item {
+  text-align: left;
+  padding: 12px;
+  border: 1px solid #cfd9de;
+  border-radius: 12px;
+  background: #fff;
+  font-size: 14px;
+  line-height: 1.5;
+  cursor: pointer;
+}
+
+.ai-reply-panel-item:hover {
+  background: rgba(29, 155, 240, 0.1);
+  border-color: #1d9bf0;
+}
+
+.ai-reply-panel-note {
+  font-size: 11px;
+  color: #536471;
+  text-align: center;
+}
+
+/* ---- 画面下の通知（トースト） ---- */
+.ai-reply-toast {
+  position: fixed;
+  bottom: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1d9bf0;
+  color: #fff;
+  padding: 10px 20px;
+  border-radius: 9999px;
+  font-size: 14px;
+  z-index: 10001;                 /* パネルよりさらに手前 */
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
