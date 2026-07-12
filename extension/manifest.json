@@ -1,16 +1,15 @@
 {
   "manifest_version": 3,
   "name": "X AIリプ アシスタント",
-  "version": "0.5.0",
-  "description": "Xの投稿にAIリプ候補を表示する拡張機能。送信は必ず人間が行います。",
+  "version": "0.6.0",
+  "description": "Xの投稿からリプ生成プロンプトを作ってChatGPTに渡し、選んだ案を返信欄へ入力する拡張機能。送信は必ず人間が行います。",
   "background": {
     "service_worker": "background.js"
   },
-  "host_permissions": ["http://localhost:3000/*"],
   "content_scripts": [
     {
       "matches": ["https://x.com/*", "https://twitter.com/*"],
-      "js": ["content.js"],
+      "js": ["prompt-template.js", "content.js"],
       "css": ["content.css"]
     }
   ]

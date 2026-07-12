@@ -1,13 +1,14 @@
 // =====================================================================
-// X AIリプ アシスタント
-// X のページに読み込まれて、以下の3つを行うスクリプトです。
+// X AIリプ アシスタント（ChatGPT連携版）
+// X のページに読み込まれて、以下を行うスクリプトです。
 //   1. 各投稿に「AIリプ」ボタンを追加する
-//   2. ボタンが押されたら、その投稿の本文と投稿者名を取得し、
-//      background.js（通信係）経由でバックエンドサーバーに生成を依頼する
-//   3. 返ってきたリプ3案（本命・親しみ・知見）をパネルに表示する
+//   2. ボタンが押されたら、投稿本文と投稿者名を取得し、
+//      専用プロンプト（prompt-template.js）を組み立ててパネルに表示する
+//   3. 「ChatGPTで開く」で、プロンプトを持って新しいタブへ移動する
+//   4. ChatGPT でコピーしたリプ案を、対象投稿の返信欄へ入力する
 //
-// このファイルは「画面まわり」専門で、サーバーとの通信は
-// background.js が担当します。
+// 送信は必ず人間が行います。自動送信のコードはありません。
+// API・サーバーは使いません。
 // =====================================================================
 
 // ---- 投稿を見つけるための「目印」（セレクタ） -----------------------
@@ -22,10 +23,16 @@ const SELECTORS = {
   composer: '[data-testid="tweetTextarea_0"]',  // 返信の入力欄
 };
 
-// 「AIリプ」ボタンを押した投稿を覚えておく変数。
-// 候補クリック時に「この投稿の返信ボタン」を押すために使う。
-// 画面に複数の投稿があっても対象を取り違えないための仕組み。
-let currentTweet = null;
+// ChatGPT の場所。「?q=プロンプト」を付けると入力済みの状態で開く
+const CHATGPT_URL = "https://chatgpt.com/";
+
+// URL に載せるプロンプトの長さの上限（超えたらコピー方式に自動で切り替え）
+const MAX_URL_LENGTH = 6000;
+
+// 状態を覚えておく変数たち
+let currentTweet = null; // 「AIリプ」ボタンを押した投稿
+let pendingTweet = null; // 返信欄への入力を待っている投稿
+let lastPrompt = "";     // 直前に作ったプロンプト（誤って貼り付けた時の検出用）
 
 // =====================================================================
 // 1. 各投稿に「AIリプ」ボタンを追加する
@@ -59,7 +66,7 @@ function addButtons() {
 }
 
 // =====================================================================
-// 2. 投稿の本文と投稿者名を取得する
+// 2. 投稿の情報を取得して、プロンプトを組み立てる
 // =====================================================================
 
 function getTweetInfo(tweet) {
@@ -78,40 +85,24 @@ function getTweetInfo(tweet) {
 function onAiReplyClick(tweet) {
   const info = getTweetInfo(tweet);
 
-  // どの投稿へのリプか覚えておく（候補クリック時に使う）
+  // どの投稿へのリプか覚えておく（返信欄への入力時に使う）
   currentTweet = tweet;
 
   // 動作確認用：取得した内容を開発者ツールのコンソールにも出す
   console.log("[AIリプ] 取得した投稿:", info);
 
-  // 先に「生成中…」の状態でパネルを開く
-  showPanel(info);
+  // prompt-template.js のテンプレートでプロンプトを作る
+  const prompt = buildPrompt(info);
+  lastPrompt = prompt;
 
-  // background.js（通信係）にリプ生成を依頼する。
-  // 結果は2つ目の引数の関数（コールバック）に後から届く。
-  chrome.runtime.sendMessage(
-    { type: "GENERATE_REPLIES", author: info.author, text: info.text },
-    (response) => {
-      // 拡張機能を更新した直後などは通信路が切れていることがある
-      if (chrome.runtime.lastError || !response) {
-        renderError("拡張機能内の通信に失敗しました。X のページを再読み込みしてから、もう一度お試しください。");
-        return;
-      }
-      if (!response.ok) {
-        renderError(response.error);
-        return;
-      }
-      renderResult(response.data);
-    }
-  );
+  showPanel(info, prompt);
 }
 
 // =====================================================================
-// 3. リプ3案をパネルに表示する
+// 3. プロンプトをパネルに表示して、ChatGPT へ渡す
 // =====================================================================
 
-// パネルを「生成中…」の状態で開く
-function showPanel(info) {
+function showPanel(info, prompt) {
   // すでにパネルが開いていたら一度閉じる
   closePanel();
 
@@ -129,11 +120,10 @@ function showPanel(info) {
   // --- ヘッダー ---
   const title = document.createElement("div");
   title.className = "ai-reply-panel-title";
-  title.textContent = "AIリプ候補";
+  title.textContent = "AIリプ用プロンプト";
   panel.appendChild(title);
 
   // --- 取得した投稿の確認表示 ---
-  // 本文・投稿者名が正しく取れているかをここで確認できます
   const source = document.createElement("div");
   source.className = "ai-reply-panel-source";
   source.textContent =
@@ -141,127 +131,158 @@ function showPanel(info) {
     `${info.text || "（本文を取得できませんでした）"}`;
   panel.appendChild(source);
 
-  // --- 中身の入れ物 ---
-  // 最初は「生成中…」を表示し、サーバーから結果が届いたら
-  // renderResult() / renderError() がここを書き換える
-  const body = document.createElement("div");
-  body.className = "ai-reply-panel-body";
+  // --- 作成されたプロンプトのプレビュー ---
+  const preview = document.createElement("div");
+  preview.className = "ai-reply-prompt-preview";
+  preview.textContent = prompt;
+  panel.appendChild(preview);
 
-  const loading = document.createElement("div");
-  loading.className = "ai-reply-panel-loading";
-  loading.textContent = "リプを生成中…";
-  body.appendChild(loading);
+  // --- ボタン ---
+  const actions = document.createElement("div");
+  actions.className = "ai-reply-panel-actions";
 
-  panel.appendChild(body);
+  // 本命: プロンプトを持って ChatGPT を新しいタブで開く
+  const openButton = document.createElement("button");
+  openButton.className = "ai-reply-action-button ai-reply-action-primary";
+  openButton.textContent = "🚀 ChatGPTで開く（プロンプト入り）";
+  openButton.addEventListener("click", () => openInChatGPT(prompt));
+  actions.appendChild(openButton);
+
+  // 予備: プロンプトをコピーして、空の ChatGPT を開く
+  // （?q= の仕組みが将来使えなくなった場合はこちらを使う）
+  const copyButton = document.createElement("button");
+  copyButton.className = "ai-reply-action-button ai-reply-action-secondary";
+  copyButton.textContent = "📋 コピーしてChatGPTを開く（予備）";
+  copyButton.addEventListener("click", () => copyAndOpenChatGPT(prompt, false));
+  actions.appendChild(copyButton);
+
+  panel.appendChild(actions);
 
   // --- 注意書き ---
   const note = document.createElement("div");
   note.className = "ai-reply-panel-note";
-  note.textContent = "※ 送信は手動です。候補を選ぶと返信欄に入力されますが、自動送信は行いません";
+  note.textContent =
+    "※ 送信は手動です。ChatGPTで気に入った案をコピーしたら、" +
+    "Xに戻って「返信欄へ入力」ボタンを押してください";
   panel.appendChild(note);
 
   overlay.appendChild(panel);
   document.body.appendChild(overlay);
 }
 
-// サーバーから届いたリプ3案をパネルに表示する
-function renderResult(result) {
-  const body = document.querySelector(".ai-reply-panel-body");
-  if (!body) return; // 結果が届く前にパネルが閉じられていたら何もしない
-
-  body.innerHTML = ""; // 「生成中…」を消す
-
-  // --- 採用した視点の表示 ---
-  // AIがどの視点（優先順位）を選んだかの確認用
-  const angle = document.createElement("div");
-  angle.className = "ai-reply-panel-angle";
-  angle.textContent = `視点: ${result.viewpoint}`;
-  body.appendChild(angle);
-
-  // --- リプ候補の一覧（本命・親しみ・知見） ---
-  for (const reply of result.replies) {
-    const item = document.createElement("button");
-    item.className = "ai-reply-panel-item";
-
-    // 「本命」などのラベル（バッジ）
-    const label = document.createElement("span");
-    label.className = "ai-reply-panel-item-label";
-    label.textContent = reply.type;
-    item.appendChild(label);
-
-    // リプの本文
-    const text = document.createElement("span");
-    text.textContent = reply.text;
-    item.appendChild(text);
-
-    item.addEventListener("click", () => {
-      onReplySelected(reply.text);
-    });
-    body.appendChild(item);
-  }
+function closePanel() {
+  const overlay = document.querySelector(".ai-reply-overlay");
+  if (overlay) overlay.remove();
 }
 
-// エラーメッセージをパネルに表示する
-function renderError(message) {
-  const body = document.querySelector(".ai-reply-panel-body");
-  if (!body) return;
+// プロンプトをURLに載せて ChatGPT を新しいタブで開く
+function openInChatGPT(prompt) {
+  const url = CHATGPT_URL + "?q=" + encodeURIComponent(prompt);
 
-  body.innerHTML = "";
+  // URLが長すぎる場合はコピー方式に自動で切り替える
+  if (url.length > MAX_URL_LENGTH) {
+    copyAndOpenChatGPT(prompt, true);
+    return;
+  }
 
-  const error = document.createElement("div");
-  error.className = "ai-reply-panel-error";
-  error.textContent = message;
-  body.appendChild(error);
+  // タブを開くのは background.js の仕事（メッセージで依頼する）
+  chrome.runtime.sendMessage({ type: "OPEN_CHATGPT", url });
+
+  closePanel();
+  showPasteBar();
+}
+
+// プロンプトをクリップボードにコピーしてから、空の ChatGPT を開く（予備手段）
+async function copyAndOpenChatGPT(prompt, becauseTooLong) {
+  try {
+    await navigator.clipboard.writeText(prompt);
+  } catch {
+    // コピーに失敗してもタブは開く（パネルのプレビューから手動コピーできる）
+  }
+
+  chrome.runtime.sendMessage({ type: "OPEN_CHATGPT", url: CHATGPT_URL });
+
+  closePanel();
+  showToast(
+    becauseTooLong
+      ? "プロンプトが長いためコピー方式にしました。ChatGPTの入力欄に貼り付けて送信してください"
+      : "プロンプトをコピーしました。ChatGPTの入力欄に貼り付けて送信してください",
+    "normal",
+    5000
+  );
+  showPasteBar();
 }
 
 // =====================================================================
-// 4. 選んだ候補を返信欄へ自動入力する
+// 4. ChatGPT でコピーしたリプ案を、対象投稿の返信欄へ入力する
 //    ※ 入力するだけで、送信ボタンには一切触れません（送信は手動）
 // =====================================================================
+
+// ChatGPT へ行っている間、X の画面の右下に「返信欄へ入力」ボタンを出しておく
+function showPasteBar() {
+  removePasteBar();
+
+  // どの投稿への返信かを、この時点の対象で確定させておく
+  pendingTweet = currentTweet;
+
+  const bar = document.createElement("div");
+  bar.className = "ai-reply-paste-bar";
+
+  const button = document.createElement("button");
+  button.className = "ai-reply-paste-button";
+  button.textContent = "📋 コピーした文章を返信欄へ入力";
+  button.addEventListener("click", onPasteButtonClick);
+  bar.appendChild(button);
+
+  const close = document.createElement("button");
+  close.className = "ai-reply-paste-close";
+  close.textContent = "×";
+  close.title = "閉じる";
+  close.addEventListener("click", removePasteBar);
+  bar.appendChild(close);
+
+  document.body.appendChild(bar);
+}
+
+function removePasteBar() {
+  const bar = document.querySelector(".ai-reply-paste-bar");
+  if (bar) bar.remove();
+}
 
 // 入力処理が動いている間は true になるフラグ（二重入力の防止）
 let isInserting = false;
 
-async function onReplySelected(text) {
+async function onPasteButtonClick() {
   // 連打などで二重に動かないようにする
   if (isInserting) return;
   isInserting = true;
 
-  // どの投稿へのリプかは currentTweet に覚えてある
-  const tweet = currentTweet;
-  closePanel();
-
   try {
-    // 対象の投稿がもう画面に無い場合（スクロールで消えた等）は失敗扱い
-    if (!tweet || !document.contains(tweet)) {
-      throw new Error("対象の投稿が画面から見つかりませんでした");
+    // 1. クリップボードの中身を読む
+    //    （初回は Chrome が「クリップボードの読み取りを許可しますか」と
+    //      聞いてくるので「許可」を選ぶ）
+    let text = "";
+    try {
+      text = (await navigator.clipboard.readText()).trim();
+    } catch {
+      throw new Error("クリップボードを読み取れませんでした。Chromeに表示される許可の確認で「許可」を選んでください");
     }
 
-    // 1. 対象投稿の返信ボタンを押して、返信画面を開く
-    const replyButton = tweet.querySelector(SELECTORS.replyButton);
-    if (!replyButton) {
-      throw new Error("返信ボタンが見つかりませんでした");
+    // 2. 中身のチェック
+    if (!text) {
+      throw new Error("クリップボードが空です。ChatGPTで気に入ったリプ案をコピーしてから押してください");
     }
-    replyButton.click();
+    if (lastPrompt && text === lastPrompt.trim()) {
+      throw new Error("コピーされているのはプロンプトです。ChatGPTが生成したリプ案の方をコピーしてください");
+    }
 
-    // 2. 返信の入力欄が開くのを待つ（最大4秒）
-    const composer = await waitForElement(SELECTORS.composer, 4000);
+    // 3. 対象投稿の返信欄に入力する
+    const result = await insertReplyText(pendingTweet, text);
 
-    // 3. すでに同じ文章が入っていたら何もしない（二重入力の防止）
-    if (composer.textContent.includes(text)) {
+    // 4. 結果に応じた案内を表示（送信は手動！）
+    if (result === "already") {
       showToast("すでに入力済みです。送信は手動で行ってください");
-      return;
-    }
-
-    // 4. 文章を挿入して、本当に入ったか検証する
-    const ok = await insertTextIntoComposer(composer, text);
-    if (!ok) {
-      throw new Error("返信欄への入力を確認できませんでした");
-    }
-
-    // 5. 完了。カーソルは返信欄にあるので、そのまま編集できる。
-    //    文字数チェック（日本語の投稿はおおよそ140文字が上限）
-    if (text.length > 140) {
+    } else if (text.length > 140) {
       showToast(
         `✏ 入力しました。⚠ ${text.length}文字あり、Xの文字数制限を超える可能性があります。編集のうえ、送信は手動で行ってください`,
         "warn",
@@ -270,19 +291,45 @@ async function onReplySelected(text) {
     } else {
       showToast("✏ 入力しました。送信は手動です。内容を確認・編集してから送信してください", "normal", 5000);
     }
-  } catch (err) {
-    console.warn("[AIリプ] 自動入力に失敗:", err.message);
 
-    // 失敗したらクリップボードにコピーして、手動での貼り付けをお願いする
-    try {
-      await navigator.clipboard.writeText(text);
-      showToast("自動入力できなかったため、クリップボードにコピーしました。返信欄に貼り付けてください（送信は手動です）", "warn", 5000);
-    } catch {
-      showToast("自動入力もコピーもできませんでした。お手数ですが手動で入力してください", "warn", 5000);
-    }
+    removePasteBar();
+  } catch (err) {
+    console.warn("[AIリプ] 返信欄への入力に失敗:", err.message);
+    showToast(err.message, "warn", 6000);
   } finally {
     isInserting = false;
   }
+}
+
+// 対象投稿の返信欄を開いて、文章を入力する（成功: "ok" / 入力済み: "already"）
+async function insertReplyText(tweet, text) {
+  // 対象の投稿がもう画面に無い場合（スクロールで消えた等）は失敗扱い
+  if (!tweet || !document.contains(tweet)) {
+    throw new Error("対象の投稿が画面から見つかりませんでした。投稿を表示して、もう一度「AIリプ」からやり直してください");
+  }
+
+  // 1. 対象投稿の返信ボタンを押して、返信画面を開く
+  const replyButton = tweet.querySelector(SELECTORS.replyButton);
+  if (!replyButton) {
+    throw new Error("返信ボタンが見つかりませんでした");
+  }
+  replyButton.click();
+
+  // 2. 返信の入力欄が開くのを待つ（最大4秒）
+  const composer = await waitForElement(SELECTORS.composer, 4000);
+
+  // 3. すでに同じ文章が入っていたら何もしない（二重入力の防止）
+  if (composer.textContent.includes(text)) {
+    return "already";
+  }
+
+  // 4. 文章を挿入して、本当に入ったか検証する
+  const ok = await insertTextIntoComposer(composer, text);
+  if (!ok) {
+    throw new Error("返信欄への入力を確認できませんでした。お手数ですが手動で貼り付けてください（文章はコピーされたままです）");
+  }
+
+  return "ok";
 }
 
 // 指定したセレクタの要素が画面に現れるまで待つ（0.1秒ごとに確認）
@@ -348,11 +395,6 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function closePanel() {
-  const overlay = document.querySelector(".ai-reply-overlay");
-  if (overlay) overlay.remove();
-}
-
 // 画面下に短時間だけ出る通知（トースト）
 // type に "warn" を渡すとオレンジ色の警告表示になる
 function showToast(message, type = "normal", durationMs = 3000) {
@@ -387,4 +429,4 @@ observer.observe(document.body, { childList: true, subtree: true });
 // 読み込み直後に表示されている投稿にもボタンを付ける
 addButtons();
 
-console.log("[AIリプ] 拡張機能が読み込まれました");
+console.log("[AIリプ] 拡張機能が読み込まれました（ChatGPT連携版）");

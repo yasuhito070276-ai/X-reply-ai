@@ -30,9 +30,9 @@
   justify-content: center;
 }
 
-/* ---- リプ候補のパネル ---- */
+/* ---- パネル ---- */
 .ai-reply-panel {
-  width: min(480px, 90vw);        /* 最大480px、狭い画面では画面幅の90% */
+  width: min(520px, 90vw);        /* 最大520px、狭い画面では画面幅の90% */
   background: #fff;
   color: #0f1419;
   border-radius: 16px;
@@ -59,72 +59,102 @@
   overflow-y: auto;               /* 長い本文はスクロールで見られる */
 }
 
-/* パネルの中身（生成中 → 結果 に入れ替わる部分） */
-.ai-reply-panel-body {
+/* 作成されたプロンプトのプレビュー */
+.ai-reply-prompt-preview {
+  font-size: 12px;
+  line-height: 1.6;
+  background: #f7f9f9;
+  border: 1px solid #cfd9de;
+  border-radius: 8px;
+  padding: 10px 12px;
+  max-height: 200px;
+  overflow-y: auto;               /* 長いので中でスクロールする */
+  white-space: pre-wrap;          /* 改行をそのまま表示する */
+}
+
+/* ボタンの並び */
+.ai-reply-panel-actions {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
 }
 
-/* 「リプを生成中…」の表示 */
-.ai-reply-panel-loading {
-  text-align: center;
-  color: #536471;
-  font-size: 14px;
-  padding: 16px 0;
-}
-
-/* エラーメッセージの表示 */
-.ai-reply-panel-error {
-  background: #fdecea;
-  color: #c0392b;
-  border-radius: 8px;
+.ai-reply-action-button {
   padding: 12px;
-  font-size: 13px;
-  line-height: 1.5;
-}
-
-/* 採用した視点（優先順位のどれが選ばれたか）の表示 */
-.ai-reply-panel-angle {
-  font-size: 12px;
-  color: #1d9bf0;
+  border-radius: 9999px;
+  font-size: 14px;
   font-weight: bold;
-}
-
-/* リプ候補の1つ1つ */
-.ai-reply-panel-item {
-  text-align: left;
-  padding: 12px;
-  border: 1px solid #cfd9de;
-  border-radius: 12px;
-  background: #fff;
-  font-size: 14px;
-  line-height: 1.5;
   cursor: pointer;
 }
 
-.ai-reply-panel-item:hover {
-  background: rgba(29, 155, 240, 0.1);
-  border-color: #1d9bf0;
-}
-
-/* 候補の先頭に付く「本命」「親しみ」「知見」のバッジ */
-.ai-reply-panel-item-label {
-  display: inline-block;
-  margin-right: 8px;
-  padding: 2px 8px;
-  border-radius: 9999px;
+/* 本命ボタン（青地に白文字） */
+.ai-reply-action-primary {
   background: #1d9bf0;
   color: #fff;
-  font-size: 11px;
-  font-weight: bold;
-  white-space: nowrap;
+  border: none;
+}
+
+.ai-reply-action-primary:hover {
+  background: #1a8cd8;
+}
+
+/* 予備ボタン（白地に青文字） */
+.ai-reply-action-secondary {
+  background: #fff;
+  color: #1d9bf0;
+  border: 1px solid #cfd9de;
+}
+
+.ai-reply-action-secondary:hover {
+  background: rgba(29, 155, 240, 0.1);
 }
 
 .ai-reply-panel-note {
   font-size: 11px;
   color: #536471;
   text-align: center;
+}
+
+/* ---- 画面右下の「返信欄へ入力」ボタン ---- */
+/* ChatGPTへ行っている間、Xの画面で待機している */
+.ai-reply-paste-bar {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 10001;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #1d9bf0;
+  border-radius: 9999px;
+  padding: 6px 8px 6px 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.ai-reply-paste-button {
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  padding: 6px 0;
+}
+
+.ai-reply-paste-close {
+  background: rgba(255, 255, 255, 0.25);
+  border: none;
+  color: #fff;
+  font-size: 14px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.ai-reply-paste-close:hover {
+  background: rgba(255, 255, 255, 0.4);
 }
 
 /* ---- 画面下の通知（トースト） ---- */
@@ -138,7 +168,7 @@
   padding: 10px 20px;
   border-radius: 9999px;
   font-size: 14px;
-  z-index: 10001;                 /* パネルよりさらに手前 */
+  z-index: 10002;                 /* パネル・待機ボタンよりさらに手前 */
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
   max-width: 90vw;                /* 長いメッセージでも画面からはみ出さない */
   text-align: center;
