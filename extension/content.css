@@ -140,4 +140,11 @@
   font-size: 14px;
   z-index: 10001;                 /* パネルよりさらに手前 */
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  max-width: 90vw;                /* 長いメッセージでも画面からはみ出さない */
+  text-align: center;
+}
+
+/* 警告用のトースト（オレンジ色） */
+.ai-reply-toast-warn {
+  background: #e67e22;
 }

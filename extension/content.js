@@ -18,7 +18,14 @@ const SELECTORS = {
   tweetText: 'div[data-testid="tweetText"]',    // 投稿の本文
   userName: 'div[data-testid="User-Name"]',     // 投稿者名の表示部分
   actionBar: 'div[role="group"]',               // 返信・リポスト等のボタン列
+  replyButton: 'button[data-testid="reply"]',   // 各投稿の返信ボタン
+  composer: '[data-testid="tweetTextarea_0"]',  // 返信の入力欄
 };
+
+// 「AIリプ」ボタンを押した投稿を覚えておく変数。
+// 候補クリック時に「この投稿の返信ボタン」を押すために使う。
+// 画面に複数の投稿があっても対象を取り違えないための仕組み。
+let currentTweet = null;
 
 // =====================================================================
 // 1. 各投稿に「AIリプ」ボタンを追加する
@@ -70,6 +77,9 @@ function getTweetInfo(tweet) {
 
 function onAiReplyClick(tweet) {
   const info = getTweetInfo(tweet);
+
+  // どの投稿へのリプか覚えておく（候補クリック時に使う）
+  currentTweet = tweet;
 
   // 動作確認用：取得した内容を開発者ツールのコンソールにも出す
   console.log("[AIリプ] 取得した投稿:", info);
@@ -147,7 +157,7 @@ function showPanel(info) {
   // --- 注意書き ---
   const note = document.createElement("div");
   note.className = "ai-reply-panel-note";
-  note.textContent = "※ 送信は必ずご自身で行ってください（自動送信はしません）";
+  note.textContent = "※ 送信は手動です。候補を選ぶと返信欄に入力されますが、自動送信は行いません";
   panel.appendChild(note);
 
   overlay.appendChild(panel);
@@ -185,12 +195,7 @@ function renderResult(result) {
     item.appendChild(text);
 
     item.addEventListener("click", () => {
-      // 【仮の動作】クリップボードにコピーする。
-      // 返信欄への自動入力は後のステップで実装します。
-      navigator.clipboard.writeText(reply.text).then(() => {
-        showToast("コピーしました！ 返信欄に貼り付けてください");
-        closePanel();
-      });
+      onReplySelected(reply.text);
     });
     body.appendChild(item);
   }
@@ -209,18 +214,156 @@ function renderError(message) {
   body.appendChild(error);
 }
 
+// =====================================================================
+// 4. 選んだ候補を返信欄へ自動入力する
+//    ※ 入力するだけで、送信ボタンには一切触れません（送信は手動）
+// =====================================================================
+
+// 入力処理が動いている間は true になるフラグ（二重入力の防止）
+let isInserting = false;
+
+async function onReplySelected(text) {
+  // 連打などで二重に動かないようにする
+  if (isInserting) return;
+  isInserting = true;
+
+  // どの投稿へのリプかは currentTweet に覚えてある
+  const tweet = currentTweet;
+  closePanel();
+
+  try {
+    // 対象の投稿がもう画面に無い場合（スクロールで消えた等）は失敗扱い
+    if (!tweet || !document.contains(tweet)) {
+      throw new Error("対象の投稿が画面から見つかりませんでした");
+    }
+
+    // 1. 対象投稿の返信ボタンを押して、返信画面を開く
+    const replyButton = tweet.querySelector(SELECTORS.replyButton);
+    if (!replyButton) {
+      throw new Error("返信ボタンが見つかりませんでした");
+    }
+    replyButton.click();
+
+    // 2. 返信の入力欄が開くのを待つ（最大4秒）
+    const composer = await waitForElement(SELECTORS.composer, 4000);
+
+    // 3. すでに同じ文章が入っていたら何もしない（二重入力の防止）
+    if (composer.textContent.includes(text)) {
+      showToast("すでに入力済みです。送信は手動で行ってください");
+      return;
+    }
+
+    // 4. 文章を挿入して、本当に入ったか検証する
+    const ok = await insertTextIntoComposer(composer, text);
+    if (!ok) {
+      throw new Error("返信欄への入力を確認できませんでした");
+    }
+
+    // 5. 完了。カーソルは返信欄にあるので、そのまま編集できる。
+    //    文字数チェック（日本語の投稿はおおよそ140文字が上限）
+    if (text.length > 140) {
+      showToast(
+        `✏ 入力しました。⚠ ${text.length}文字あり、Xの文字数制限を超える可能性があります。編集のうえ、送信は手動で行ってください`,
+        "warn",
+        6000
+      );
+    } else {
+      showToast("✏ 入力しました。送信は手動です。内容を確認・編集してから送信してください", "normal", 5000);
+    }
+  } catch (err) {
+    console.warn("[AIリプ] 自動入力に失敗:", err.message);
+
+    // 失敗したらクリップボードにコピーして、手動での貼り付けをお願いする
+    try {
+      await navigator.clipboard.writeText(text);
+      showToast("自動入力できなかったため、クリップボードにコピーしました。返信欄に貼り付けてください（送信は手動です）", "warn", 5000);
+    } catch {
+      showToast("自動入力もコピーもできませんでした。お手数ですが手動で入力してください", "warn", 5000);
+    }
+  } finally {
+    isInserting = false;
+  }
+}
+
+// 指定したセレクタの要素が画面に現れるまで待つ（0.1秒ごとに確認）
+function waitForElement(selector, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    const startedAt = Date.now();
+    const timer = setInterval(() => {
+      const el = document.querySelector(selector);
+      if (el) {
+        clearInterval(timer);
+        resolve(el);
+      } else if (Date.now() - startedAt > timeoutMs) {
+        clearInterval(timer);
+        reject(new Error("返信欄が開きませんでした"));
+      }
+    }, 100);
+  });
+}
+
+// 返信欄（contenteditable）に文章を挿入する。
+//
+// X の返信欄は React が管理していて、要素に文字を直接書き込むと
+// 「見た目には入っているのに X の内部データは空」というズレが起きる。
+// そこで、本物のユーザー操作と同じ経路で文字が入る方法を使う:
+//   方法1: execCommand("insertText") … キー入力の再現
+//   方法2: paste イベントの発行     … 貼り付けの再現（方法1がダメな場合）
+// 挿入後に textContent を見て、本当に入ったかを必ず検証する。
+async function insertTextIntoComposer(composer, text) {
+  composer.focus();
+
+  // 方法1: キー入力の再現
+  try {
+    document.execCommand("insertText", false, text);
+  } catch {
+    // 失敗しても方法2があるので何もしない
+  }
+
+  // React の画面更新を少し待ってから検証
+  await sleep(300);
+  if (composer.textContent.includes(text)) return true;
+
+  // 方法2: 貼り付け操作の再現
+  try {
+    const data = new DataTransfer();
+    data.setData("text/plain", text);
+    composer.dispatchEvent(
+      new ClipboardEvent("paste", {
+        clipboardData: data,
+        bubbles: true,
+        cancelable: true,
+      })
+    );
+  } catch {
+    // 検証で失敗を検知するので何もしない
+  }
+
+  await sleep(300);
+  return composer.textContent.includes(text);
+}
+
+// 指定ミリ秒だけ待つ小道具
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 function closePanel() {
   const overlay = document.querySelector(".ai-reply-overlay");
   if (overlay) overlay.remove();
 }
 
 // 画面下に短時間だけ出る通知（トースト）
-function showToast(message) {
+// type に "warn" を渡すとオレンジ色の警告表示になる
+function showToast(message, type = "normal", durationMs = 3000) {
+  // 前のトーストが残っていたら消す（重なり防止）
+  document.querySelectorAll(".ai-reply-toast").forEach((el) => el.remove());
+
   const toast = document.createElement("div");
-  toast.className = "ai-reply-toast";
+  toast.className = "ai-reply-toast" + (type === "warn" ? " ai-reply-toast-warn" : "");
   toast.textContent = message;
   document.body.appendChild(toast);
-  setTimeout(() => toast.remove(), 3000);
+  setTimeout(() => toast.remove(), durationMs);
 }
 
 // =====================================================================

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "X AIリプ アシスタント",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Xの投稿にAIリプ候補を表示する拡張機能。送信は必ず人間が行います。",
   "background": {
     "service_worker": "background.js"
