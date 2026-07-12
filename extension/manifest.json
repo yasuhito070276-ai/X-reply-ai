@@ -1,12 +1,12 @@
 {
   "manifest_version": 3,
   "name": "X AIリプ アシスタント",
-  "version": "0.1.0",
-  "description": "Xの投稿にAIリプ候補を表示する拡張機能（モック版）。送信は必ず人間が行います。",
+  "version": "0.2.0",
+  "description": "Xの投稿にAIリプ候補を表示する拡張機能。送信は必ず人間が行います。",
   "content_scripts": [
     {
       "matches": ["https://x.com/*", "https://twitter.com/*"],
-      "js": ["content.js"],
+      "js": ["reply-generator.js", "content.js"],
       "css": ["content.css"]
     }
   ]

@@ -1,20 +1,14 @@
 // =====================================================================
-// X AIリプ アシスタント（モック版）
+// X AIリプ アシスタント（ルールベース版）
 // X のページに読み込まれて、以下の3つを行うスクリプトです。
 //   1. 各投稿に「AIリプ」ボタンを追加する
 //   2. ボタンが押されたら、その投稿の本文と投稿者名を取得する
-//   3. 固定の3案（モック）をパネルに表示する
+//   3. リプ3案（本命・親しみ・知見）をパネルに表示する
+//
+// リプの文章を作る処理は reply-generator.js（先に読み込まれる）の
+// generateReplies() が担当します。このファイルは「画面まわり」専門です。
 // AI・バックエンドへの通信はまだ行いません。
 // =====================================================================
-
-// ---- 固定のリプ3案（モックデータ） ---------------------------------
-// 後のステップで、この部分がバックエンド（→ OpenAI API）からの
-// 応答に置き換わります。
-const MOCK_REPLIES = [
-  "とても参考になりました！シェアありがとうございます😊",
-  "なるほど、その視点は考えたことがなかったです。勉強になります！",
-  "共感しかないです…！続報も楽しみにしています✨",
-];
 
 // ---- 投稿を見つけるための「目印」（セレクタ） -----------------------
 // X の画面は data-testid という属性を目印にできます。
@@ -80,14 +74,17 @@ function onAiReplyClick(tweet) {
   // 動作確認用：取得した内容を開発者ツールのコンソールにも出す
   console.log("[AIリプ] 取得した投稿:", info);
 
-  showPanel(info, MOCK_REPLIES);
+  // reply-generator.js のルールベース生成でリプ3案を作る
+  const result = generateReplies(info);
+
+  showPanel(info, result);
 }
 
 // =====================================================================
 // 3. リプ3案をパネルに表示する
 // =====================================================================
 
-function showPanel(info, replies) {
+function showPanel(info, result) {
   // すでにパネルが開いていたら一度閉じる
   closePanel();
 
@@ -105,7 +102,7 @@ function showPanel(info, replies) {
   // --- ヘッダー ---
   const title = document.createElement("div");
   title.className = "ai-reply-panel-title";
-  title.textContent = "AIリプ候補（モック版）";
+  title.textContent = "AIリプ候補";
   panel.appendChild(title);
 
   // --- 取得した投稿の確認表示 ---
@@ -117,15 +114,33 @@ function showPanel(info, replies) {
     `${info.text || "（本文を取得できませんでした）"}`;
   panel.appendChild(source);
 
-  // --- リプ候補の一覧 ---
-  for (const reply of replies) {
+  // --- 採用した視点の表示 ---
+  // どのルール（優先順位）が選ばれたかの確認用
+  const angle = document.createElement("div");
+  angle.className = "ai-reply-panel-angle";
+  angle.textContent = `視点: ${result.angleName}`;
+  panel.appendChild(angle);
+
+  // --- リプ候補の一覧（本命・親しみ・知見） ---
+  for (const reply of result.replies) {
     const item = document.createElement("button");
     item.className = "ai-reply-panel-item";
-    item.textContent = reply;
+
+    // 「本命」などのラベル（バッジ）
+    const label = document.createElement("span");
+    label.className = "ai-reply-panel-item-label";
+    label.textContent = reply.label;
+    item.appendChild(label);
+
+    // リプの本文
+    const body = document.createElement("span");
+    body.textContent = reply.text;
+    item.appendChild(body);
+
     item.addEventListener("click", () => {
       // 【仮の動作】クリップボードにコピーする。
       // 返信欄への自動入力は後のステップで実装します。
-      navigator.clipboard.writeText(reply).then(() => {
+      navigator.clipboard.writeText(reply.text).then(() => {
         showToast("コピーしました！ 返信欄に貼り付けてください");
         closePanel();
       });
@@ -178,4 +193,4 @@ observer.observe(document.body, { childList: true, subtree: true });
 // 読み込み直後に表示されている投稿にもボタンを付ける
 addButtons();
 
-console.log("[AIリプ] 拡張機能が読み込まれました（モック版）");
+console.log("[AIリプ] 拡張機能が読み込まれました（ルールベース版）");
