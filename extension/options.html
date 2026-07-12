@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>X AIリプ アシスタント 設定</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 24px 16px 60px;
+      color: #0f1419;
+      background: #f7f9f9;
+      line-height: 1.6;
+    }
+    h1 {
+      font-size: 20px;
+    }
+    .field {
+      background: #fff;
+      border: 1px solid #cfd9de;
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    label {
+      display: block;
+      font-weight: bold;
+      margin-bottom: 4px;
+    }
+    .hint {
+      font-size: 12px;
+      color: #536471;
+      margin: 0 0 8px;
+    }
+    input[type="url"], textarea {
+      width: 100%;
+      box-sizing: border-box;
+      border: 1px solid #cfd9de;
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-size: 14px;
+      font-family: inherit;
+    }
+    textarea#promptTemplate {
+      height: 320px;
+    }
+    textarea#guideMessage {
+      height: 60px;
+    }
+    .buttons {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+    button {
+      padding: 10px 24px;
+      border-radius: 9999px;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    #save {
+      background: #1d9bf0;
+      color: #fff;
+      border: none;
+    }
+    #save:hover { background: #1a8cd8; }
+    #reset {
+      background: #fff;
+      color: #536471;
+      border: 1px solid #cfd9de;
+    }
+    #status {
+      font-size: 14px;
+      color: #00ba7c;
+      font-weight: bold;
+    }
+    #status.error { color: #c0392b; }
+  </style>
+</head>
+<body>
+  <h1>X AIリプ アシスタント 設定</h1>
+
+  <div class="field">
+    <label for="chatUrl">1. X交流リプ専用チャットのURL</label>
+    <p class="hint">
+      ChatGPTで専用チャットを1つ作り、そのURL（例:
+      https://chatgpt.com/c/xxxxxxxx）をここに貼ります。
+      毎回このチャットを使い続けます。空欄の場合は chatgpt.com のトップが開きます。
+    </p>
+    <input type="url" id="chatUrl" placeholder="https://chatgpt.com/c/xxxxxxxx" />
+  </div>
+
+  <div class="field">
+    <label for="promptTemplate">2. リプ生成プロンプト</label>
+    <p class="hint">
+      {author} は投稿者名、{text} は投稿本文に自動で置き換わります。
+      この2つの目印は消さないでください（{text} は必須です）。
+    </p>
+    <textarea id="promptTemplate"></textarea>
+  </div>
+
+  <div class="field">
+    <label for="guideMessage">3. ChatGPTを開いた後に表示する案内文</label>
+    <p class="hint">AIリプボタンを押したときに、Xの画面に表示されるメッセージです。</p>
+    <textarea id="guideMessage"></textarea>
+  </div>
+
+  <div class="buttons">
+    <button id="save">保存</button>
+    <button id="reset">初期値に戻す（「保存」を押すと確定）</button>
+    <span id="status"></span>
+  </div>
+
+  <script src="settings.js"></script>
+  <script src="options.js"></script>
+</body>
+</html>

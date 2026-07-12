@@ -1,14 +1,16 @@
 // =====================================================================
-// X AIリプ アシスタント（ChatGPT連携版）
+// X AIリプ アシスタント（ChatGPT専用チャット連携版）
 // X のページに読み込まれて、以下を行うスクリプトです。
 //   1. 各投稿に「AIリプ」ボタンを追加する
 //   2. ボタンが押されたら、投稿本文と投稿者名を取得し、
-//      専用プロンプト（prompt-template.js）を組み立ててパネルに表示する
-//   3. 「ChatGPTで開く」で、プロンプトを持って新しいタブへ移動する
+//      設定されたプロンプト文面に差し込んでクリップボードへコピーする
+//   3. 案内文を表示してから、ChatGPT のタブへ移動する
+//      （専用チャットのタブがあればそれを前面表示。background.js が担当）
 //   4. ChatGPT でコピーしたリプ案を、対象投稿の返信欄へ入力する
 //
-// 送信は必ず人間が行います。自動送信のコードはありません。
-// API・サーバーは使いません。
+// 送信は必ず人間が行います。X にも ChatGPT にも自動送信のコードはありません。
+// ChatGPT の画面（入力欄・送信ボタン）は一切操作しません。
+// 設定（専用チャットURL・プロンプト・案内文）は settings.js + 設定画面で管理。
 // =====================================================================
 
 // ---- 投稿を見つけるための「目印」（セレクタ） -----------------------
@@ -23,11 +25,8 @@ const SELECTORS = {
   composer: '[data-testid="tweetTextarea_0"]',  // 返信の入力欄
 };
 
-// ChatGPT の場所。「?q=プロンプト」を付けると入力済みの状態で開く
-const CHATGPT_URL = "https://chatgpt.com/";
-
-// URL に載せるプロンプトの長さの上限（超えたらコピー方式に自動で切り替え）
-const MAX_URL_LENGTH = 6000;
+// 案内文を読む時間を確保するため、タブ切り替えを少し遅らせる（ミリ秒）
+const TAB_SWITCH_DELAY = 1000;
 
 // 状態を覚えておく変数たち
 let currentTweet = null; // 「AIリプ」ボタンを押した投稿
@@ -66,7 +65,7 @@ function addButtons() {
 }
 
 // =====================================================================
-// 2. 投稿の情報を取得して、プロンプトを組み立てる
+// 2. 投稿を取得 → プロンプトをコピー → ChatGPT のタブへ
 // =====================================================================
 
 function getTweetInfo(tweet) {
@@ -82,7 +81,7 @@ function getTweetInfo(tweet) {
   return { author, text };
 }
 
-function onAiReplyClick(tweet) {
+async function onAiReplyClick(tweet) {
   const info = getTweetInfo(tweet);
 
   // どの投稿へのリプか覚えておく（返信欄への入力時に使う）
@@ -91,130 +90,41 @@ function onAiReplyClick(tweet) {
   // 動作確認用：取得した内容を開発者ツールのコンソールにも出す
   console.log("[AIリプ] 取得した投稿:", info);
 
-  // prompt-template.js のテンプレートでプロンプトを作る
-  const prompt = buildPrompt(info);
+  // 設定（プロンプト文面・専用チャットURL・案内文）を読み込む
+  const settings = await loadSettings();
+
+  // プロンプトを組み立てる（settings.js の buildPrompt）
+  const prompt = buildPrompt(settings.promptTemplate, info);
   lastPrompt = prompt;
 
-  showPanel(info, prompt);
-}
-
-// =====================================================================
-// 3. プロンプトをパネルに表示して、ChatGPT へ渡す
-// =====================================================================
-
-function showPanel(info, prompt) {
-  // すでにパネルが開いていたら一度閉じる
-  closePanel();
-
-  // 画面全体を覆う半透明の背景（クリックで閉じる）
-  const overlay = document.createElement("div");
-  overlay.className = "ai-reply-overlay";
-  overlay.addEventListener("click", (event) => {
-    if (event.target === overlay) closePanel();
-  });
-
-  // パネル本体
-  const panel = document.createElement("div");
-  panel.className = "ai-reply-panel";
-
-  // --- ヘッダー ---
-  const title = document.createElement("div");
-  title.className = "ai-reply-panel-title";
-  title.textContent = "AIリプ用プロンプト";
-  panel.appendChild(title);
-
-  // --- 取得した投稿の確認表示 ---
-  const source = document.createElement("div");
-  source.className = "ai-reply-panel-source";
-  source.textContent =
-    `${info.author || "（投稿者名を取得できませんでした）"}: ` +
-    `${info.text || "（本文を取得できませんでした）"}`;
-  panel.appendChild(source);
-
-  // --- 作成されたプロンプトのプレビュー ---
-  const preview = document.createElement("div");
-  preview.className = "ai-reply-prompt-preview";
-  preview.textContent = prompt;
-  panel.appendChild(preview);
-
-  // --- ボタン ---
-  const actions = document.createElement("div");
-  actions.className = "ai-reply-panel-actions";
-
-  // 本命: プロンプトを持って ChatGPT を新しいタブで開く
-  const openButton = document.createElement("button");
-  openButton.className = "ai-reply-action-button ai-reply-action-primary";
-  openButton.textContent = "🚀 ChatGPTで開く（プロンプト入り）";
-  openButton.addEventListener("click", () => openInChatGPT(prompt));
-  actions.appendChild(openButton);
-
-  // 予備: プロンプトをコピーして、空の ChatGPT を開く
-  // （?q= の仕組みが将来使えなくなった場合はこちらを使う）
-  const copyButton = document.createElement("button");
-  copyButton.className = "ai-reply-action-button ai-reply-action-secondary";
-  copyButton.textContent = "📋 コピーしてChatGPTを開く（予備）";
-  copyButton.addEventListener("click", () => copyAndOpenChatGPT(prompt, false));
-  actions.appendChild(copyButton);
-
-  panel.appendChild(actions);
-
-  // --- 注意書き ---
-  const note = document.createElement("div");
-  note.className = "ai-reply-panel-note";
-  note.textContent =
-    "※ 送信は手動です。ChatGPTで気に入った案をコピーしたら、" +
-    "Xに戻って「返信欄へ入力」ボタンを押してください";
-  panel.appendChild(note);
-
-  overlay.appendChild(panel);
-  document.body.appendChild(overlay);
-}
-
-function closePanel() {
-  const overlay = document.querySelector(".ai-reply-overlay");
-  if (overlay) overlay.remove();
-}
-
-// プロンプトをURLに載せて ChatGPT を新しいタブで開く
-function openInChatGPT(prompt) {
-  const url = CHATGPT_URL + "?q=" + encodeURIComponent(prompt);
-
-  // URLが長すぎる場合はコピー方式に自動で切り替える
-  if (url.length > MAX_URL_LENGTH) {
-    copyAndOpenChatGPT(prompt, true);
-    return;
-  }
-
-  // タブを開くのは background.js の仕事（メッセージで依頼する）
-  chrome.runtime.sendMessage({ type: "OPEN_CHATGPT", url });
-
-  closePanel();
-  showPasteBar();
-}
-
-// プロンプトをクリップボードにコピーしてから、空の ChatGPT を開く（予備手段）
-async function copyAndOpenChatGPT(prompt, becauseTooLong) {
+  // クリップボードへコピー
   try {
     await navigator.clipboard.writeText(prompt);
   } catch {
-    // コピーに失敗してもタブは開く（パネルのプレビューから手動コピーできる）
+    showToast("クリップボードへのコピーに失敗しました。もう一度お試しください", "warn", 5000);
+    return;
   }
 
-  chrome.runtime.sendMessage({ type: "OPEN_CHATGPT", url: CHATGPT_URL });
+  // 案内文を表示（設定画面で変更できる）。
+  // 専用チャットURLが未設定なら、設定を促すひとことを足す
+  let message = settings.guideMessage;
+  if (!settings.chatUrl) {
+    message += "（拡張機能の設定画面で専用チャットURLを登録すると、毎回同じチャットが開きます）";
+  }
+  showToast(message, "normal", 6000);
 
-  closePanel();
-  showToast(
-    becauseTooLong
-      ? "プロンプトが長いためコピー方式にしました。ChatGPTの入力欄に貼り付けて送信してください"
-      : "プロンプトをコピーしました。ChatGPTの入力欄に貼り付けて送信してください",
-    "normal",
-    5000
-  );
+  // ChatGPT から戻ってきたとき用の「返信欄へ入力」ボタンを出しておく
   showPasteBar();
+
+  // 案内文を読む時間を少し置いてから、ChatGPT のタブへ移動する。
+  // タブの検索・切り替え・作成は background.js の仕事（メッセージで依頼）
+  setTimeout(() => {
+    chrome.runtime.sendMessage({ type: "SHOW_CHATGPT", chatUrl: settings.chatUrl });
+  }, TAB_SWITCH_DELAY);
 }
 
 // =====================================================================
-// 4. ChatGPT でコピーしたリプ案を、対象投稿の返信欄へ入力する
+// 3. ChatGPT でコピーしたリプ案を、対象投稿の返信欄へ入力する
 //    ※ 入力するだけで、送信ボタンには一切触れません（送信は手動）
 // =====================================================================
 
@@ -429,4 +339,4 @@ observer.observe(document.body, { childList: true, subtree: true });
 // 読み込み直後に表示されている投稿にもボタンを付ける
 addButtons();
 
-console.log("[AIリプ] 拡張機能が読み込まれました（ChatGPT連携版）");
+console.log("[AIリプ] 拡張機能が読み込まれました（ChatGPT専用チャット連携版）");

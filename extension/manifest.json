@@ -1,15 +1,20 @@
 {
   "manifest_version": 3,
   "name": "X AIリプ アシスタント",
-  "version": "0.6.0",
-  "description": "Xの投稿からリプ生成プロンプトを作ってChatGPTに渡し、選んだ案を返信欄へ入力する拡張機能。送信は必ず人間が行います。",
+  "version": "0.7.0",
+  "description": "Xの投稿からリプ生成プロンプトを作ってコピーし、専用のChatGPTチャットを表示する拡張機能。送信は必ず人間が行います。",
+  "permissions": ["tabs", "storage", "clipboardWrite"],
   "background": {
     "service_worker": "background.js"
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
   },
   "content_scripts": [
     {
       "matches": ["https://x.com/*", "https://twitter.com/*"],
-      "js": ["prompt-template.js", "content.js"],
+      "js": ["settings.js", "content.js"],
       "css": ["content.css"]
     }
   ]
