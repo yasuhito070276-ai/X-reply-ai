@@ -33,8 +33,9 @@ document.getElementById("save").addEventListener("click", () => {
   }
 
   // 入力チェック2: プロンプトに投稿本文の差し込み位置が必要
-  if (!promptTemplate.includes("{text}")) {
-    showStatus("プロンプトに {text}（投稿本文の差し込み位置）が含まれていません", true);
+  // （新形式 {{postText}} または旧形式 {text} のどちらか）
+  if (!promptTemplate.includes("{{postText}}") && !promptTemplate.includes("{text}")) {
+    showStatus("プロンプトに {{postText}}（投稿本文の差し込み位置）が含まれていません", true);
     return;
   }
 

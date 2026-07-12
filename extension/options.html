@@ -95,8 +95,9 @@
   <div class="field">
     <label for="promptTemplate">2. リプ生成プロンプト</label>
     <p class="hint">
-      {author} は投稿者名、{text} は投稿本文に自動で置き換わります。
-      この2つの目印は消さないでください（{text} は必須です）。
+      {{author}} は投稿者名、{{postText}} は投稿本文に自動で置き換わります
+      （{{postText}} は必須です）。固定ルールは ChatGPT のプロジェクト側に
+      設定してあるため、ここは短い文面で OK です。
     </p>
     <textarea id="promptTemplate"></textarea>
   </div>
