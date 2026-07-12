@@ -19,11 +19,11 @@ X-reply-ai/
 │   ├── manifest.json      … 拡張機能の設計図
 │   ├── content.js         … ボタン追加・投稿取得・候補パネル表示
 │   ├── background.js      … 通信係。バックエンドサーバーに生成を依頼
-│   ├── reply-generator.js … リプ生成ロジック（サーバー側で使用）
 │   └── content.css        … ボタンとパネルの見た目
 └── server/             … バックエンドサーバー
-    ├── package.json    … サーバーが使うライブラリの一覧
-    └── server.js       … POST /api/replies で投稿を受け取り3案を返す
+    ├── package.json       … サーバーが使うライブラリの一覧
+    ├── server.js          … POST /api/replies で投稿を受け取り3案を返す
+    └── reply-generator.js … リプ生成ロジック（ルールベース）
 ```
 
 APIキーは拡張機能内には保存しません。AI（OpenAI API）への通信は
@@ -61,6 +61,10 @@ cd server
 npm install   # 初回のみ。ライブラリをダウンロードする
 npm start     # サーバー起動。止めるときは Ctrl+C
 ```
+
+**注意:** `npm install` と `npm start` は必ず `server` フォルダの中で
+実行してください（先に `cd server` する）。`npm install` を忘れると
+起動時に `Cannot find module 'express'` というエラーが出ます。
 
 起動したら、ブラウザで http://localhost:3000 を開いて
 「サーバーは動いています」と表示されれば成功です。

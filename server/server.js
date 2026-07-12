@@ -2,8 +2,8 @@
 // X AIリプ アシスタント バックエンドサーバー（モック版）
 //
 // Chrome 拡張機能から投稿内容を受け取り、リプ3案を JSON で返します。
-// 現在はまだ OpenAI API には繋がず、拡張機能と同じルールベース生成
-// （../extension/reply-generator.js）をサーバー側で動かして返します。
+// 現在はまだ OpenAI API には繋がず、ルールベース生成
+// （reply-generator.js）をサーバー側で動かして返します。
 //
 // 起動方法:
 //   cd server
@@ -14,8 +14,8 @@
 const express = require("express");
 const cors = require("cors");
 
-// 拡張機能と同じリプ生成ロジックを読み込む（書き直さずに使い回す）
-const { generateReplies } = require("../extension/reply-generator.js");
+// リプ生成ロジックを読み込む（同じ server フォルダ内にある）
+const { generateReplies } = require("./reply-generator.js");
 
 const app = express();
 
