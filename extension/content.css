@@ -59,6 +59,31 @@
   overflow-y: auto;               /* 長い本文はスクロールで見られる */
 }
 
+/* パネルの中身（生成中 → 結果 に入れ替わる部分） */
+.ai-reply-panel-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* 「リプを生成中…」の表示 */
+.ai-reply-panel-loading {
+  text-align: center;
+  color: #536471;
+  font-size: 14px;
+  padding: 16px 0;
+}
+
+/* エラーメッセージの表示 */
+.ai-reply-panel-error {
+  background: #fdecea;
+  color: #c0392b;
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
 /* 採用した視点（優先順位のどれが選ばれたか）の表示 */
 .ai-reply-panel-angle {
   font-size: 12px;

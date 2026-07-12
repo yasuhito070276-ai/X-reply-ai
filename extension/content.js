@@ -1,13 +1,13 @@
 // =====================================================================
-// X AIリプ アシスタント（ルールベース版）
+// X AIリプ アシスタント
 // X のページに読み込まれて、以下の3つを行うスクリプトです。
 //   1. 各投稿に「AIリプ」ボタンを追加する
-//   2. ボタンが押されたら、その投稿の本文と投稿者名を取得する
-//   3. リプ3案（本命・親しみ・知見）をパネルに表示する
+//   2. ボタンが押されたら、その投稿の本文と投稿者名を取得し、
+//      background.js（通信係）経由でバックエンドサーバーに生成を依頼する
+//   3. 返ってきたリプ3案（本命・親しみ・知見）をパネルに表示する
 //
-// リプの文章を作る処理は reply-generator.js（先に読み込まれる）の
-// generateReplies() が担当します。このファイルは「画面まわり」専門です。
-// AI・バックエンドへの通信はまだ行いません。
+// このファイルは「画面まわり」専門で、サーバーとの通信は
+// background.js が担当します。
 // =====================================================================
 
 // ---- 投稿を見つけるための「目印」（セレクタ） -----------------------
@@ -74,17 +74,34 @@ function onAiReplyClick(tweet) {
   // 動作確認用：取得した内容を開発者ツールのコンソールにも出す
   console.log("[AIリプ] 取得した投稿:", info);
 
-  // reply-generator.js のルールベース生成でリプ3案を作る
-  const result = generateReplies(info);
+  // 先に「生成中…」の状態でパネルを開く
+  showPanel(info);
 
-  showPanel(info, result);
+  // background.js（通信係）にリプ生成を依頼する。
+  // 結果は2つ目の引数の関数（コールバック）に後から届く。
+  chrome.runtime.sendMessage(
+    { type: "GENERATE_REPLIES", author: info.author, text: info.text },
+    (response) => {
+      // 拡張機能を更新した直後などは通信路が切れていることがある
+      if (chrome.runtime.lastError || !response) {
+        renderError("拡張機能内の通信に失敗しました。X のページを再読み込みしてから、もう一度お試しください。");
+        return;
+      }
+      if (!response.ok) {
+        renderError(response.error);
+        return;
+      }
+      renderResult(response.data);
+    }
+  );
 }
 
 // =====================================================================
 // 3. リプ3案をパネルに表示する
 // =====================================================================
 
-function showPanel(info, result) {
+// パネルを「生成中…」の状態で開く
+function showPanel(info) {
   // すでにパネルが開いていたら一度閉じる
   closePanel();
 
@@ -114,12 +131,42 @@ function showPanel(info, result) {
     `${info.text || "（本文を取得できませんでした）"}`;
   panel.appendChild(source);
 
+  // --- 中身の入れ物 ---
+  // 最初は「生成中…」を表示し、サーバーから結果が届いたら
+  // renderResult() / renderError() がここを書き換える
+  const body = document.createElement("div");
+  body.className = "ai-reply-panel-body";
+
+  const loading = document.createElement("div");
+  loading.className = "ai-reply-panel-loading";
+  loading.textContent = "リプを生成中…";
+  body.appendChild(loading);
+
+  panel.appendChild(body);
+
+  // --- 注意書き ---
+  const note = document.createElement("div");
+  note.className = "ai-reply-panel-note";
+  note.textContent = "※ 送信は必ずご自身で行ってください（自動送信はしません）";
+  panel.appendChild(note);
+
+  overlay.appendChild(panel);
+  document.body.appendChild(overlay);
+}
+
+// サーバーから届いたリプ3案をパネルに表示する
+function renderResult(result) {
+  const body = document.querySelector(".ai-reply-panel-body");
+  if (!body) return; // 結果が届く前にパネルが閉じられていたら何もしない
+
+  body.innerHTML = ""; // 「生成中…」を消す
+
   // --- 採用した視点の表示 ---
   // どのルール（優先順位）が選ばれたかの確認用
   const angle = document.createElement("div");
   angle.className = "ai-reply-panel-angle";
   angle.textContent = `視点: ${result.angleName}`;
-  panel.appendChild(angle);
+  body.appendChild(angle);
 
   // --- リプ候補の一覧（本命・親しみ・知見） ---
   for (const reply of result.replies) {
@@ -133,9 +180,9 @@ function showPanel(info, result) {
     item.appendChild(label);
 
     // リプの本文
-    const body = document.createElement("span");
-    body.textContent = reply.text;
-    item.appendChild(body);
+    const text = document.createElement("span");
+    text.textContent = reply.text;
+    item.appendChild(text);
 
     item.addEventListener("click", () => {
       // 【仮の動作】クリップボードにコピーする。
@@ -145,17 +192,21 @@ function showPanel(info, result) {
         closePanel();
       });
     });
-    panel.appendChild(item);
+    body.appendChild(item);
   }
+}
 
-  // --- 注意書き ---
-  const note = document.createElement("div");
-  note.className = "ai-reply-panel-note";
-  note.textContent = "※ 送信は必ずご自身で行ってください（自動送信はしません）";
-  panel.appendChild(note);
+// エラーメッセージをパネルに表示する
+function renderError(message) {
+  const body = document.querySelector(".ai-reply-panel-body");
+  if (!body) return;
 
-  overlay.appendChild(panel);
-  document.body.appendChild(overlay);
+  body.innerHTML = "";
+
+  const error = document.createElement("div");
+  error.className = "ai-reply-panel-error";
+  error.textContent = message;
+  body.appendChild(error);
 }
 
 function closePanel() {
@@ -193,4 +244,4 @@ observer.observe(document.body, { childList: true, subtree: true });
 // 読み込み直後に表示されている投稿にもボタンを付ける
 addButtons();
 
-console.log("[AIリプ] 拡張機能が読み込まれました（ルールベース版）");
+console.log("[AIリプ] 拡張機能が読み込まれました");
