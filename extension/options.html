@@ -83,28 +83,28 @@
   <h1>X AIリプ アシスタント 設定</h1>
 
   <div class="field">
-    <label for="chatUrl">1. X交流リプ専用チャットのURL</label>
+    <label for="chatUrl">1. Xリプ専用GPTチャットのURL</label>
     <p class="hint">
-      ChatGPTで専用チャットを1つ作り、そのURL（例:
-      https://chatgpt.com/c/xxxxxxxx）をここに貼ります。
+      Xリプ専用のGPT（カスタムGPT）のチャットURL（例:
+      https://chatgpt.com/g/g-xxxx）をここに貼ります。
       毎回このチャットを使い続けます。空欄の場合は chatgpt.com のトップが開きます。
     </p>
-    <input type="url" id="chatUrl" placeholder="https://chatgpt.com/c/xxxxxxxx" />
+    <input type="url" id="chatUrl" placeholder="https://chatgpt.com/g/g-xxxx" />
   </div>
 
   <div class="field">
-    <label for="promptTemplate">2. リプ生成プロンプト</label>
+    <label for="promptTemplate">2. リプ生成プロンプト（固定プロンプト）</label>
     <p class="hint">
       {{author}} は投稿者名、{{postText}} は投稿本文に自動で置き換わります
-      （{{postText}} は必須です）。固定ルールは ChatGPT のプロジェクト側に
-      設定してあるため、ここは短い文面で OK です。
+      （{{postText}} は必須です）。リプ生成の固定ルールはGPT側に設定してあるため、
+      ここは指示と出力形式だけの文面で OK です。
     </p>
     <textarea id="promptTemplate"></textarea>
   </div>
 
   <div class="field">
-    <label for="guideMessage">3. ChatGPTを開いた後に表示する案内文</label>
-    <p class="hint">AIリプボタンを押したときに、Xの画面に表示されるメッセージです。</p>
+    <label for="guideMessage">3. コピー後に大きく表示する案内文</label>
+    <p class="hint">AIリプボタンを押したときに、Xの画面中央に大きく表示されるメッセージです。</p>
     <textarea id="guideMessage"></textarea>
   </div>
 

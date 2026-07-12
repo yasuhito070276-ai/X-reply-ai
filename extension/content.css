@@ -61,6 +61,43 @@
   background: rgba(255, 255, 255, 0.4);
 }
 
+/* ---- 画面中央の大きな案内表示 ---- */
+/* 「コピーしました。⌘＋Vで貼り付け…」を大きく表示する */
+.ai-reply-big-message {
+  position: fixed;
+  top: 40%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(15, 20, 25, 0.92);   /* 濃い色の板に白文字 */
+  color: #fff;
+  padding: 28px 36px;
+  border-radius: 20px;
+  z-index: 10003;                        /* 最前面 */
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+  max-width: min(600px, 90vw);
+  text-align: center;
+  cursor: pointer;                       /* クリックで閉じられる */
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ai-reply-big-message-text {
+  font-size: 22px;
+  font-weight: bold;
+  line-height: 1.5;
+}
+
+.ai-reply-big-message-sub {
+  font-size: 13px;
+  color: #cfd9de;
+}
+
+/* エラー時（赤色の板） */
+.ai-reply-big-message-error {
+  background: rgba(192, 57, 43, 0.95);
+}
+
 /* ---- 画面下の通知（トースト） ---- */
 .ai-reply-toast {
   position: fixed;

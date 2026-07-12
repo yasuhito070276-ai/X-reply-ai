@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "X AIリプ アシスタント",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "description": "Xの投稿からリプ生成プロンプトを作ってコピーし、専用のChatGPTチャットを表示する拡張機能。送信は必ず人間が行います。",
   "permissions": ["tabs", "storage", "clipboardWrite"],
   "background": {

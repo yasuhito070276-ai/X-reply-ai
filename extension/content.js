@@ -97,21 +97,22 @@ async function onAiReplyClick(tweet) {
   const prompt = buildPrompt(settings.promptTemplate, info);
   lastPrompt = prompt;
 
-  // クリップボードへコピー
+  // クリップボードへコピー。
+  // 失敗した場合はエラーを大きく表示して、タブは開かずに終了する
   try {
     await navigator.clipboard.writeText(prompt);
   } catch {
-    showToast("クリップボードへのコピーに失敗しました。もう一度お試しください", "warn", 5000);
+    showBigMessage("コピーに失敗しました。もう一度「AIリプ」を押してください", { isError: true });
     return;
   }
 
-  // 案内文を表示（設定画面で変更できる）。
+  // 案内文（設定画面で変更できる）を画面に大きく表示する。
   // 専用チャットURLが未設定なら、設定を促すひとことを足す
-  let message = settings.guideMessage;
-  if (!settings.chatUrl) {
-    message += "（拡張機能の設定画面で専用チャットURLを登録すると、毎回同じチャットが開きます）";
-  }
-  showToast(message, "normal", 6000);
+  showBigMessage(settings.guideMessage, {
+    subText: settings.chatUrl
+      ? ""
+      : "拡張機能の設定画面でGPTチャットのURLを登録すると、毎回同じチャットが開きます",
+  });
 
   // ChatGPT から戻ってきたとき用の「返信欄へ入力」ボタンを出しておく
   showPasteBar();
@@ -121,6 +122,31 @@ async function onAiReplyClick(tweet) {
   setTimeout(() => {
     chrome.runtime.sendMessage({ type: "SHOW_CHATGPT", chatUrl: settings.chatUrl });
   }, TAB_SWITCH_DELAY);
+}
+
+// 画面中央に大きく表示する案内（クリックか5秒経過で消える）
+function showBigMessage(message, { isError = false, subText = "" } = {}) {
+  // 前の表示が残っていたら消す
+  document.querySelectorAll(".ai-reply-big-message").forEach((el) => el.remove());
+
+  const box = document.createElement("div");
+  box.className = "ai-reply-big-message" + (isError ? " ai-reply-big-message-error" : "");
+
+  const main = document.createElement("div");
+  main.className = "ai-reply-big-message-text";
+  main.textContent = message;
+  box.appendChild(main);
+
+  if (subText) {
+    const sub = document.createElement("div");
+    sub.className = "ai-reply-big-message-sub";
+    sub.textContent = subText;
+    box.appendChild(sub);
+  }
+
+  box.addEventListener("click", () => box.remove());
+  document.body.appendChild(box);
+  setTimeout(() => box.remove(), 5000);
 }
 
 // =====================================================================
