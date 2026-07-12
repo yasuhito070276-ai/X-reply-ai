@@ -1,0 +1,2 @@
+# npm install でダウンロードされるライブラリ（GitHubには上げない）
+node_modules/

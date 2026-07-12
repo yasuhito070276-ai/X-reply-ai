@@ -1,0 +1,31 @@
+<!doctype html>
+<html><body>
+<article data-testid="tweet" id="tweet1">
+  <div data-testid="User-Name">投稿者A
+@user_a</div>
+  <div data-testid="tweetText">毎朝のルーティンを変えたら人生が変わった</div>
+  <div role="group"><button data-testid="reply">返信</button></div>
+</article>
+<script>
+  document.querySelectorAll('[data-testid="reply"]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      setTimeout(() => {
+        if (document.querySelector('[data-testid="tweetTextarea_0"]')) return;
+        const box = document.createElement('div');
+        box.setAttribute('data-testid', 'tweetTextarea_0');
+        box.setAttribute('contenteditable', 'true');
+        box.setAttribute('role', 'textbox');
+        box.style.cssText = 'border:1px solid #999;min-height:60px;padding:8px;margin-top:12px';
+        // Draft.js風: pasteイベントを自前で処理してテキストを追加する
+        // （本物のXはプログラム発行のpasteイベントでも文章が入る）
+        box.addEventListener('paste', (e) => {
+          e.preventDefault();
+          const t = e.clipboardData ? e.clipboardData.getData('text/plain') : '';
+          if (t) box.appendChild(document.createTextNode(t));
+        });
+        document.body.appendChild(box);
+      }, 300);
+    });
+  });
+</script>
+</body></html>

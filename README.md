@@ -29,7 +29,18 @@ X-reply-ai/
 │   ├── content.js      … ボタン追加・投稿取得・コピー・返信欄への入力
 │   ├── background.js   … ChatGPTタブを探して前面表示／専用チャットを開く係
 │   └── content.css     … ボタンなどの見た目
+├── tests/              … 自動テスト
+│   ├── e2e-noduplicate.js … 返信欄への重複入力が起きないことの確認
+│   └── fixtures/          … X の返信欄（Draft.js）を再現したテストページ
 └── server/             … 【休止中】OpenAI API 版のバックエンド
+```
+
+## 自動テストの実行方法
+
+```bash
+cd tests
+npm install          # 初回のみ（Playwrightのブラウザも必要: npx playwright install chromium）
+npm test
 ```
 
 ### 使用する権限（必要最小限）

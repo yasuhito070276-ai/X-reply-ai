@@ -53,6 +53,10 @@ function addButtons() {
     button.className = "ai-reply-button";
     button.textContent = "AIリプ";
 
+    // イベント登録済みの印（万一同じボタンが再処理されても二重登録しない）
+    if (button.dataset.aiReplyBound === "1") continue;
+    button.dataset.aiReplyBound = "1";
+
     button.addEventListener("click", (event) => {
       // クリックが投稿本体に伝わって詳細ページへ遷移するのを防ぐ
       event.stopPropagation();
@@ -189,9 +193,13 @@ function removePasteBar() {
 let isInserting = false;
 
 async function onPasteButtonClick() {
-  // 連打などで二重に動かないようにする
+  // 連打などで二重に動かないようにする（入力処理中フラグ）
   if (isInserting) return;
   isInserting = true;
+
+  // 処理中はボタン自体も押せなくする（二重の保険）
+  const barButton = document.querySelector(".ai-reply-paste-button");
+  if (barButton) barButton.disabled = true;
 
   try {
     // 1. クリップボードの中身を読む
@@ -234,6 +242,9 @@ async function onPasteButtonClick() {
     showToast(err.message, "warn", 6000);
   } finally {
     isInserting = false;
+    // ボタンがまだ画面に残っていたら押せる状態に戻す
+    const btn = document.querySelector(".ai-reply-paste-button");
+    if (btn) btn.disabled = false;
   }
 }
 
@@ -254,8 +265,9 @@ async function insertReplyText(tweet, text) {
   // 2. 返信の入力欄が開くのを待つ（最大4秒）
   const composer = await waitForElement(SELECTORS.composer, 4000);
 
-  // 3. すでに同じ文章が入っていたら何もしない（二重入力の防止）
-  if (composer.textContent.includes(text)) {
+  // 3. すでに同じ文章が入っていたら何もしない（二重入力の防止）。
+  //    改行・空白の違いを無視して比べる（containsText 参照）
+  if (containsText(composer, text)) {
     return "already";
   }
 
@@ -285,28 +297,65 @@ function waitForElement(selector, timeoutMs) {
   });
 }
 
+// ---- 文章の比較用の道具 ----------------------------------------------
+// X の返信欄（Draft.js）は改行を「別のブロック要素」として持つため、
+// textContent を読むと改行文字が消える（"1行目\n2行目" → "1行目2行目"）。
+// そのまま比べると「入力できているのに未入力」と誤判定し、二重入力の
+// 原因になるので、空白・改行をすべて取り除いてから比べる。
+function normalizeForCompare(s) {
+  return (s || "").replace(/\s+/g, "");
+}
+
+// 返信欄に text がすでに入っているか（空白・改行の違いは無視）
+function containsText(composer, text) {
+  const normalized = normalizeForCompare(text);
+  if (normalized === "") return false;
+  return normalizeForCompare(composer.textContent).includes(normalized);
+}
+
 // 返信欄（contenteditable）に文章を挿入する。
 //
 // X の返信欄は React が管理していて、要素に文字を直接書き込むと
 // 「見た目には入っているのに X の内部データは空」というズレが起きる。
 // そこで、本物のユーザー操作と同じ経路で文字が入る方法を使う:
 //   方法1: execCommand("insertText") … キー入力の再現
-//   方法2: paste イベントの発行     … 貼り付けの再現（方法1がダメな場合）
-// 挿入後に textContent を見て、本当に入ったかを必ず検証する。
+//   方法2: paste イベントの発行     … 貼り付けの再現
+//
+// 【二重入力防止の大原則】
+// 方法2に進んでよいのは「方法1が実行されず、返信欄が何も変わっていない」
+// 場合だけ。方法1が実行されたら、検証結果がどうであれ必ずここで終わる。
 async function insertTextIntoComposer(composer, text) {
   composer.focus();
 
+  // 挿入前の状態を控えておく（変化したかどうかの判定に使う）
+  const beforeContent = normalizeForCompare(composer.textContent);
+
   // 方法1: キー入力の再現
+  let execRan = false;
   try {
-    document.execCommand("insertText", false, text);
+    execRan = document.execCommand("insertText", false, text);
   } catch {
-    // 失敗しても方法2があるので何もしない
+    execRan = false;
   }
 
   // React の画面更新を少し待ってから検証
   await sleep(300);
-  if (composer.textContent.includes(text)) return true;
 
+  // 成功を確認できたら、ここで必ず終了（方法2には絶対に進まない）
+  if (containsText(composer, text)) return true;
+
+  // 方法1が「実行された」なら、たとえ検証で確認できなくても
+  // 方法2には進まない（進むと二重入力になるため）。
+  // 反映が遅れている可能性に備えて、もう一度だけ待って確認する。
+  if (execRan) {
+    await sleep(500);
+    return (
+      containsText(composer, text) ||
+      normalizeForCompare(composer.textContent) !== beforeContent
+    );
+  }
+
+  // ここに来るのは「方法1がそもそも実行されなかった」場合だけ。
   // 方法2: 貼り付け操作の再現
   try {
     const data = new DataTransfer();
@@ -323,7 +372,7 @@ async function insertTextIntoComposer(composer, text) {
   }
 
   await sleep(300);
-  return composer.textContent.includes(text);
+  return containsText(composer, text);
 }
 
 // 指定ミリ秒だけ待つ小道具
@@ -349,20 +398,30 @@ function showToast(message, type = "normal", durationMs = 3000) {
 // X はスクロールするたびに投稿を後から追加していく作りなので、
 // 「ページの変化を監視して、そのたびにボタンを付け直す」仕組みが必要です。
 // MutationObserver がその監視役です。
+//
+// 初期化はページごとに1回だけ。window に初期化済みフラグを持たせ、
+// 万一このスクリプトが同じページで二重に実行されても、監視や
+// ボタン追加が二重にならないようにしています。
 // =====================================================================
 
-// 変化が起きるたびに毎回処理すると重いので、
-// 300ミリ秒待ってまとめて1回だけ実行する（デバウンス）
-let addButtonsTimer = null;
+if (window.__aiReplyAssistantInitialized) {
+  console.warn("[AIリプ] すでに初期化済みのため、二重初期化をスキップしました");
+} else {
+  window.__aiReplyAssistantInitialized = true;
 
-const observer = new MutationObserver(() => {
-  clearTimeout(addButtonsTimer);
-  addButtonsTimer = setTimeout(addButtons, 300);
-});
+  // 変化が起きるたびに毎回処理すると重いので、
+  // 300ミリ秒待ってまとめて1回だけ実行する（デバウンス）
+  let addButtonsTimer = null;
 
-observer.observe(document.body, { childList: true, subtree: true });
+  const observer = new MutationObserver(() => {
+    clearTimeout(addButtonsTimer);
+    addButtonsTimer = setTimeout(addButtons, 300);
+  });
 
-// 読み込み直後に表示されている投稿にもボタンを付ける
-addButtons();
+  observer.observe(document.body, { childList: true, subtree: true });
 
-console.log("[AIリプ] 拡張機能が読み込まれました（ChatGPT専用チャット連携版）");
+  // 読み込み直後に表示されている投稿にもボタンを付ける
+  addButtons();
+
+  console.log("[AIリプ] 拡張機能が読み込まれました（ChatGPT専用チャット連携版）");
+}

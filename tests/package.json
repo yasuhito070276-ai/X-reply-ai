@@ -1,0 +1,12 @@
+{
+  "name": "x-reply-ai-tests",
+  "version": "1.0.0",
+  "description": "X AIリプ アシスタントの自動テスト（重複入力の検出など）",
+  "private": true,
+  "scripts": {
+    "test": "node e2e-noduplicate.js"
+  },
+  "dependencies": {
+    "playwright": "^1.49.0"
+  }
+}
