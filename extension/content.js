@@ -172,10 +172,10 @@ function renderResult(result) {
   body.innerHTML = ""; // 「生成中…」を消す
 
   // --- 採用した視点の表示 ---
-  // どのルール（優先順位）が選ばれたかの確認用
+  // AIがどの視点（優先順位）を選んだかの確認用
   const angle = document.createElement("div");
   angle.className = "ai-reply-panel-angle";
-  angle.textContent = `視点: ${result.angleName}`;
+  angle.textContent = `視点: ${result.viewpoint}`;
   body.appendChild(angle);
 
   // --- リプ候補の一覧（本命・親しみ・知見） ---
@@ -186,7 +186,7 @@ function renderResult(result) {
     // 「本命」などのラベル（バッジ）
     const label = document.createElement("span");
     label.className = "ai-reply-panel-item-label";
-    label.textContent = reply.label;
+    label.textContent = reply.type;
     item.appendChild(label);
 
     // リプの本文
