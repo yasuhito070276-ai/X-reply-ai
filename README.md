@@ -37,6 +37,12 @@ X-reply-ai/
 └── server/             … 【休止中】OpenAI API 版のバックエンド
 ```
 
+## 関連ツール
+
+- `x-account-analyzer/` … 参考アカウントの投稿データを時系列で分析し、
+  0→1（初収益）達成のプロセスを解き明かすローカルWebアプリ（Streamlit製）。
+  使い方は [x-account-analyzer/README.md](x-account-analyzer/README.md) を参照。
+
 ## 自動テストの実行方法
 
 ```bash

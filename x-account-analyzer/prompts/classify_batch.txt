@@ -1,0 +1,26 @@
+あなたはSNSマーケティングの分析者です。以下のX（旧Twitter）の投稿リストを1件ずつ分析してください。
+
+# カテゴリー（この中からのみ選ぶ）
+共感 / ストーリー / 教育 / ノウハウ / 実績 / 権威付け / 日常 / 意見・主張 / 問題提起 / 交流 / 販売 / 商品告知 / 外部誘導 / フォロー訴求 / その他
+
+# ルール
+- category_primary は1つ、category_secondary は最大2つ
+- confidence は 0〜1 の数値
+- 投稿に書かれていないこと（売上・収益・フォロワー数など）を捏造しない
+- is_revenue_candidate は「本人が初収益・成約を報告している可能性が高い」場合のみ true
+- ノウハウとして初収益の話をしている場合（例:「初収益を出す方法」）は false
+
+# 出力形式
+JSON配列のみを出力する。説明文は不要。各要素は次のキーを持つ:
+post_id, category_primary, category_secondary(配列), confidence(数値), reason,
+hook(冒頭のフック), theme(投稿テーマ), assumed_reader(想定読者), reader_problem(読者の悩み),
+promised_future(提示している未来), emotion(感情), structure(文章構成), cta,
+has_external_link, has_product_mention, has_line, has_note, has_mailmag, has_follow_cta(すべて true/false),
+achievement_numbers(実績数値), sales_numbers(売上数値), follower_numbers(フォロワー数値),
+is_revenue_candidate(true/false), revenue_confidence(0〜1), revenue_reason,
+is_deal_report(true/false), reproducibility("高"/"中"/"低")
+
+該当がない項目は空文字・false・0 を入れる。
+
+# 投稿リスト
+{{POSTS_JSON}}

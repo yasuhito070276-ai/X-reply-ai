@@ -1,0 +1,23 @@
+# 秘密情報（絶対にコミットしない）
+.env
+
+# ローカルデータ
+data/*.db
+data/*.db-journal
+data/*.sqlite3
+exports/*
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# 例外（空ディレクトリを残すため）
+!data/.gitkeep
+!exports/.gitkeep
